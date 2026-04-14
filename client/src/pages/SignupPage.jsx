@@ -164,10 +164,10 @@ function SignupPage() {
   const role = result.user?.role;
   switch (role) {
     case "admin":
-      navigate("/admindashboard", { replace: true });
+      navigate("/admin/dashboard", { replace: true });
       break;
     case "worker":
-      navigate("/workerdashboard", { replace: true });
+      navigate("/worker/dashboard", { replace: true });
       break;
     case "user":
       navigate("/user/dashboard", { replace: true });

@@ -150,31 +150,65 @@ const createWorker = async (req, res) => {
 
 
 // B. GET ALL WORKERS
+// Updated getWorkers function with performance metrics
 const getWorkers = async (req, res) => {
   try {
     const { department } = req.query;
     
     let query = `
-      SELECT user_id, name, email, phone_number, department, role, created_at
-      FROM users 
-      WHERE role = 'worker'
+      SELECT 
+        u.user_id, 
+        u.name, 
+        u.email, 
+        u.phone_number, 
+        u.department, 
+        u.role, 
+        u.created_at,
+        COUNT(c.complaint_id) FILTER (WHERE c.status = 'Assigned') as assigned_count,
+        COUNT(c.complaint_id) FILTER (WHERE c.status = 'In Progress') as in_progress_count,
+        COUNT(c.complaint_id) FILTER (WHERE c.status = 'Resolved') as resolved_count,
+        COUNT(c.complaint_id) FILTER (WHERE c.status = 'Closed') as closed_count,
+        COUNT(c.complaint_id) FILTER (WHERE c.status = 'Escalated') as escalated_count,
+        COUNT(c.complaint_id) as total_assigned
+      FROM users u
+      LEFT JOIN complaints c ON u.user_id = c.assigned_to
+      WHERE u.role = 'worker'
     `;
     const values = [];
     
     if (department) {
-      query += ` AND department = $1`;
+      query += ` AND u.department = $1`;
       values.push(department);
     }
     
-    query += ` ORDER BY created_at DESC`;
+    query += ` GROUP BY u.user_id ORDER BY u.created_at DESC`;
     
     const result = await pool.query(query, values);
+    
+    // Calculate efficiency for each worker
+    const workersWithMetrics = result.rows.map(worker => {
+      const totalResolved = parseInt(worker.resolved_count) || 0;
+      const totalAssigned = parseInt(worker.total_assigned) || 0;
+      const efficiency = totalAssigned > 0 ? Math.round((totalResolved / totalAssigned) * 100) : 0;
+      
+      return {
+        ...worker,
+        assigned_count: parseInt(worker.assigned_count) || 0,
+        in_progress_count: parseInt(worker.in_progress_count) || 0,
+        resolved_count: totalResolved,
+        closed_count: parseInt(worker.closed_count) || 0,
+        escalated_count: parseInt(worker.escalated_count) || 0,
+        total_assigned: totalAssigned,
+        efficiency: efficiency,
+        avg_resolution_time: null // Can be calculated with more complex query
+      };
+    });
     
     return res.status(200).json({
       success: true,
       message: 'Workers retrieved successfully',
-      data: result.rows,
-      count: result.rowCount
+      data: workersWithMetrics,
+      count: workersWithMetrics.length
     });
     
   } catch (error) {
