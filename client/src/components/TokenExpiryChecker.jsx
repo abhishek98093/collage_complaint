@@ -1,27 +1,26 @@
 import { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { resetUser } from '../slices/userSlice';
-import { isValidToken } from '../utils/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
-// Routes where TokenExpiryChecker should do nothing
-const PUBLIC_ROUTES = ['/', '/login', '/signup', '/forgot-password', '/reset-password'];
+const PUBLIC_ROUTES = ['/', '/landingpage', '/login', '/signup', '/about'];
 
 const TokenExpiryChecker = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+  const { token, isAuthenticated } = useSelector((state) => state.user);
 
   useEffect(() => {
-    // ✅ Don't run on public routes — user isn't logged in here
-    if (PUBLIC_ROUTES.some(route => location.pathname.startsWith(route))) {
+    // Don't run on public routes
+    if (PUBLIC_ROUTES.some(route => location.pathname === route)) {
       return;
     }
 
-    // ✅ No token means not logged in — nothing to check
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    // No token means not logged in
+    const currentToken = token || localStorage.getItem('token');
+    if (!currentToken) return;
 
     let lastActivityTime = Date.now();
     let inactivityTimeoutShown = false;
@@ -32,43 +31,63 @@ const TokenExpiryChecker = () => {
     };
 
     const handleLogout = (reason) => {
-      console.log(`🔴 ${reason}. Logging out...`);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      console.log(`Logging out: ${reason}`);
       dispatch(resetUser());
-
+      
       if (reason.includes('inactive')) {
         toast.info('You have been logged out due to inactivity.');
       } else if (reason.includes('expired')) {
         toast.warning('Your session has expired. Please login again.');
       }
 
-      navigate('/login');
+      navigate('/landingpage');
     };
 
-    const activityEvents = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll', 'mousedown'];
+    // Check token expiration
+    const checkTokenExpiry = () => {
+      try {
+        const payload = JSON.parse(atob(currentToken.split('.')[1]));
+        const expTime = payload.exp * 1000;
+        if (Date.now() >= expTime) {
+          handleLogout('Token expired');
+          return false;
+        }
+        return true;
+      } catch (error) {
+        console.error('Error checking token expiry:', error);
+        return false;
+      }
+    };
+
+    // Initial check
+    if (!checkTokenExpiry()) return;
+
+    const activityEvents = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'];
     activityEvents.forEach(event => window.addEventListener(event, updateActivity));
 
     const interval = setInterval(() => {
-      const token = localStorage.getItem('token');
-
-      // ✅ If token was removed (logout happened elsewhere), stop checking
-      if (!token) {
+      const currentToken = token || localStorage.getItem('token');
+      if (!currentToken) {
         clearInterval(interval);
         return;
       }
 
-      const inactiveTime = Date.now() - lastActivityTime;
-      const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 min
-      const WARNING_TIME = 25 * 60 * 1000;      // 25 min
-
-      // ✅ Check token validity
-      if (!isValidToken()) {
-        handleLogout('Token expired');
-        return;
+      // Check token expiry
+      try {
+        const payload = JSON.parse(atob(currentToken.split('.')[1]));
+        const expTime = payload.exp * 1000;
+        if (Date.now() >= expTime) {
+          handleLogout('Token expired');
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking token:', error);
       }
 
-      // ✅ Check inactivity
+      const inactiveTime = Date.now() - lastActivityTime;
+      const INACTIVITY_LIMIT = 30 * 60 * 1000;
+      const WARNING_TIME = 25 * 60 * 1000;
+
       if (inactiveTime > INACTIVITY_LIMIT) {
         handleLogout('User inactive for 30 minutes');
       } else if (inactiveTime > WARNING_TIME && !inactivityTimeoutShown) {
@@ -81,9 +100,7 @@ const TokenExpiryChecker = () => {
       clearInterval(interval);
       activityEvents.forEach(event => window.removeEventListener(event, updateActivity));
     };
-
-  // ✅ Re-run effect when route changes so public route check stays accurate
-  }, [dispatch, navigate, location.pathname]);
+  }, [dispatch, navigate, location.pathname, token, isAuthenticated]);
 
   return null;
 };

@@ -176,31 +176,75 @@ function LoginPage() {
     });
 
     // ✅ Fixed: pass email and password as separate args
-    const loginMutation = useMutation({
-        mutationFn: async ({ email, password }) => {
-            const parseResult = loginSchema.safeParse({ email, password });
-            if (!parseResult.success) {
-                throw new Error(parseResult.error.errors[0]?.message || "Enter valid email and password");
-            }
-            const result = await login(email, password); // ✅ separate args
-            if (!result.success) {
-                throw new Error(result.message || 'Login failed');
-            }
-            return result;
-        },
-        onSuccess: (result) => {
-            dispatch(setUser({
-                user: result.user,
-                workerDetails: result.workerDetails || null,
-                logedAt: Date.now(),
-            }));
-            toast.success("Welcome to College Complaint System!");
-            navigateByRole(result.user?.role, navigate); // ✅ correct roles
-        },
-        onError: (error) => {
-            toast.error(error.message || "Invalid email or password");
-        },
+    // In your LoginPage.jsx, update the loginMutation onSuccess:
+
+    // In your LoginPage.jsx, update the loginMutation:
+
+const loginMutation = useMutation({
+  mutationFn: async ({ email, password }) => {
+    const parseResult = loginSchema.safeParse({ email, password });
+    if (!parseResult.success) {
+      throw new Error(parseResult.error.errors[0]?.message || "Enter valid email and password");
+    }
+    const result = await login(email, password);
+    if (!result.success) {
+      throw new Error(result.message || 'Login failed');
+    }
+    return result;
+  },
+  onSuccess: (result) => {
+    const { token, user } = result;
+    
+    console.log('🔐 Login successful:', { 
+      role: user?.role, 
+      name: user?.name,
+      email: user?.email 
     });
+    
+    // Verify user has role
+    if (!user?.role) {
+      console.error('❌ User object missing role!', user);
+      toast.error('Invalid user data. Please contact support.');
+      return;
+    }
+    
+    // Dispatch to Redux
+    dispatch(setUser({
+      user: user,
+      token: token,
+      logedAt: Date.now(),
+    }));
+    
+    toast.success(`Welcome ${user.name}!`);
+    
+    // Small delay to ensure Redux state is updated
+    setTimeout(() => {
+      const role = user.role;
+      console.log('🚀 Navigating based on role:', role);
+      
+      switch (role) {
+        case "admin":
+          navigate("/admin/dashboard", { replace: true });
+          break;
+        case "user":
+          navigate("/user/dashboard", { replace: true });
+          break;
+        case "worker":
+          navigate("/worker/dashboard", { replace: true });
+          break;
+        default:
+          console.error('❌ Unknown role:', role);
+          toast.error("Invalid role. Redirecting to login.");
+          dispatch(resetUser());
+          navigate("/login");
+      }
+    }, 200);
+  },
+  onError: (error) => {
+    console.error('❌ Login error:', error);
+    toast.error(error.message || "Invalid email or password");
+  },
+});
 
     const handleLogin = (e) => {
         e.preventDefault();

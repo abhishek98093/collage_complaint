@@ -1,55 +1,84 @@
-/**
- * HomeRedirect Component
- * UPDATED: Converted from crime reporting to college complaint system
- * UPDATED: Changed role names (citizen→user, police→worker)
- * UPDATED: Updated dashboard routes to match complaint system
- * UPDATED: Changed landing page route
- * 
- * @description Redirects authenticated users to their respective dashboards based on role
- * @version 2.0.0 (Updated for complaint management)
- */
-
-import { useEffect } from 'react';
+// components/HomeRedirect.jsx
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getRole, isValidToken } from '../utils/utils';
+import { useSelector } from 'react-redux';
+import LoadingPage from './LoadingPage';
 
 const HomeRedirect = () => {
   const navigate = useNavigate();
+  const [isChecking, setIsChecking] = useState(true);
+  const { user, token, isAuthenticated } = useSelector((state) => state.user);
 
   useEffect(() => {
-    if (isValidToken()) {
-      const role = getRole();
+    const checkAuthAndRedirect = () => {
+      // Get fresh data from localStorage
+      const localUserStr = localStorage.getItem('user');
+      const localToken = localStorage.getItem('token');
+      
+      console.log('🏠 HomeRedirect Check:', {
+        reduxUser: user,
+        reduxToken: token ? 'exists' : 'null',
+        reduxAuth: isAuthenticated,
+        localUser: localUserStr ? JSON.parse(localUserStr) : null,
+        localToken: localToken ? 'exists' : 'null'
+      });
+      
+      // Use localStorage as fallback
+      let effectiveUser = user;
+      let effectiveToken = token;
+      let effectiveAuth = isAuthenticated;
+      
+      if ((!user || !token) && localUserStr && localToken) {
+        try {
+          effectiveUser = JSON.parse(localUserStr);
+          effectiveToken = localToken;
+          effectiveAuth = true;
+          console.log('📦 Using localStorage fallback in HomeRedirect:', effectiveUser);
+        } catch (error) {
+          console.error('Error parsing localStorage user:', error);
+        }
+      }
+      
+      if (!effectiveAuth || !effectiveToken || !effectiveUser) {
+        console.log('❌ No valid auth, redirecting to landing page');
+        navigate('/landingpage', { replace: true });
+        setIsChecking(false);
+        return;
+      }
+      
+      const role = effectiveUser?.role;
+      console.log('🎯 Redirecting based on role:', role);
+      
       switch (role) {
         case 'admin':
-          navigate('/admindashboard', { replace: true });
+          console.log('➡️ Redirecting to admin dashboard');
+          navigate('/admin/dashboard', { replace: true });
           break;
         case 'user':
+          console.log('➡️ Redirecting to user dashboard');
           navigate('/user/dashboard', { replace: true });
           break;
         case 'worker':
+          console.log('➡️ Redirecting to worker dashboard');
           navigate('/worker/dashboard', { replace: true });
           break;
         default:
-          // If no valid role, remove token and redirect to landing page
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+          console.log('⚠️ Unknown role, redirecting to landing page');
           navigate('/landingpage', { replace: true });
       }
-    } else {
-      // No token, go to landing page
-      navigate('/landingpage', { replace: true });
-    }
-  }, [navigate]);
+      setIsChecking(false);
+    };
+    
+    // Small delay to ensure everything is loaded
+    const timer = setTimeout(checkAuthAndRedirect, 100);
+    return () => clearTimeout(timer);
+  }, [navigate, user, token, isAuthenticated]);
 
-  // Show loading spinner while redirecting
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
-      <div className="text-center">
-        <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-gray-600">Redirecting...</p>
-      </div>
-    </div>
-  );
+  if (isChecking) {
+    return <LoadingPage status="load" message="Redirecting to your dashboard..." />;
+  }
+  
+  return null;
 };
 
 export default HomeRedirect;

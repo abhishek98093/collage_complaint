@@ -1,3 +1,4 @@
+// controller/workerController.js
 const pool = require('../config/db');
 
 // Helper function to validate status transitions for worker
@@ -198,7 +199,8 @@ const updateComplaintStatus = async (req, res) => {
   
   try {
     const workerId = req.user.user_id;
-    const { complaint_id, new_status } = req.body;
+    const { complaint_id } = req.params;
+    const { new_status } = req.body;
     
     if (!complaint_id || !new_status) {
       return res.status(400).json({
@@ -302,7 +304,8 @@ const addRemark = async (req, res) => {
   
   try {
     const workerId = req.user.user_id;
-    const { complaint_id, remark } = req.body;
+    const { complaint_id } = req.params;
+    const { remark } = req.body;
     
     if (!complaint_id || !remark) {
       return res.status(400).json({
@@ -479,7 +482,7 @@ const getProfile = async (req, res) => {
     const statsQuery = `
       SELECT 
         COUNT(*) as total_assigned,
-        COUNT(*) FILTER (WHERE status = 'Assigned') as assigned_count,
+        COUNT(*) FILTER (WHERE status = 'Assigned') as pending_assignment,
         COUNT(*) FILTER (WHERE status = 'In Progress') as in_progress_count,
         COUNT(*) FILTER (WHERE status = 'Resolved') as resolved_count,
         COUNT(*) FILTER (WHERE status = 'Escalated') as escalated_count
@@ -508,7 +511,7 @@ const getProfile = async (req, res) => {
   }
 };
 
-// Optional: Get complaints summary/dashboard for worker
+// G. GET DASHBOARD STATS
 const getDashboardStats = async (req, res) => {
   try {
     const workerId = req.user.user_id;
@@ -572,5 +575,5 @@ module.exports = {
   addRemark,
   getStatusHistory,
   getProfile,
-  getDashboardStats // Optional helper function
+  getDashboardStats
 };

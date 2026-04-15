@@ -25,14 +25,14 @@ export const getWorkerProfile = async () => {
       return { success: false };
     }
   } catch (error) {
-    console.error("Get worker profile error:", error);
+    console.error("Get profile error:", error);
     const message = error.response?.data?.message || error.message;
     toast.error(`Error: ${message}`);
     return { success: false };
   }
 };
 
-// ✅ 2. Get Worker Dashboard Statistics
+// ✅ 2. Get Dashboard Statistics
 export const getWorkerDashboardStats = async () => {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -54,7 +54,7 @@ export const getWorkerDashboardStats = async () => {
       return { success: false };
     }
   } catch (error) {
-    console.error("Get worker dashboard error:", error);
+    console.error("Get dashboard stats error:", error);
     const message = error.response?.data?.message || error.message;
     toast.error(`Error: ${message}`);
     return { success: false };
@@ -63,7 +63,7 @@ export const getWorkerDashboardStats = async () => {
 
 // ==================== COMPLAINT MANAGEMENT APIs ====================
 
-// ✅ 3. Get Assigned Complaints (with filters)
+// ✅ 3. Get Assigned Complaints
 export const getAssignedComplaints = async ({ status, priority, category, page = 1, limit = 10 }) => {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -93,7 +93,7 @@ export const getAssignedComplaints = async ({ status, priority, category, page =
       return { success: false };
     }
   } catch (error) {
-    console.error("Get assigned complaints error:", error);
+    console.error("Get complaints error:", error);
     const message = error.response?.data?.message || error.message;
     toast.error(`Error: ${message}`);
     return { success: false };
@@ -128,7 +128,7 @@ export const getComplaintById = async (complaint_id) => {
   }
 };
 
-// ✅ 5. Update Complaint Status (Worker Action)
+// ✅ 5. Update Complaint Status
 export const updateComplaintStatus = async (complaint_id, new_status) => {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -137,11 +137,10 @@ export const updateComplaintStatus = async (complaint_id, new_status) => {
   }
 
   try {
-    const response = await api.put(`/worker/complaints/status`, {
-      complaint_id,
+    const response = await api.put(`/worker/complaints/${complaint_id}/status`, {
       new_status
     });
-
+    
     if (response.data.success) {
       toast.success(response.data.message || "Status updated successfully!");
       return {
@@ -169,11 +168,8 @@ export const addRemark = async (complaint_id, remark) => {
   }
 
   try {
-    const response = await api.put(`/worker/complaints/remark`, {
-      complaint_id,
-      remark
-    });
-
+    const response = await api.post(`/worker/complaints/${complaint_id}/remark`, { remark });
+    
     if (response.data.success) {
       toast.success(response.data.message || "Remark added successfully!");
       return {
@@ -192,8 +188,8 @@ export const addRemark = async (complaint_id, remark) => {
   }
 };
 
-// ✅ 7. Get Complaint Status History
-export const getComplaintStatusHistory = async (complaint_id) => {
+// ✅ 7. Get Status History
+export const getStatusHistory = async (complaint_id) => {
   const token = localStorage.getItem('token');
   if (!token) {
     toast.error("You must be logged in to view history");
@@ -214,7 +210,7 @@ export const getComplaintStatusHistory = async (complaint_id) => {
       return { success: false };
     }
   } catch (error) {
-    console.error("Get status history error:", error);
+    console.error("Get history error:", error);
     const message = error.response?.data?.message || error.message;
     toast.error(`Error: ${message}`);
     return { success: false };
